@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Olympian Education • Nexus</title>
+    <style>
+        :root { --gold: #d4af37; --cyan: #00f2ff; --bg: #00050a; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background: var(--bg); overflow: hidden; font-family: 'Courier New', monospace; }
+
+        /* Background grid tunnel */
+        #bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.2); z-index: -1; }
+
+        /* Central Shield */
+        #oracle-shield {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 280px; height: 280px; border-radius: 50%; border: 4px solid var(--gold);
+            box-shadow: 0 0 50px rgba(212, 175, 55, 0.3); z-index: 10;
+        }
+
+        #container { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+
+        /* Big Orb Container */
+        .big-orb {
+            position: absolute; border: 2px dashed rgba(212, 175, 55, 0.4);
+            border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 80%);
+            transition: border-color 0.3s;
+        }
+
+        /* Small Site Orbs */
+        .small-orb {
+            position: absolute; width: 70px; height: 70px;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), rgba(0,0,0,0.95));
+            border: 1px solid var(--m-color); border-radius: 50%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #fff; font-size: 0.45rem; font-weight: bold; cursor: pointer;
+            pointer-events: auto; box-shadow: 0 0 15px var(--m-color);
+            text-align: center; padding: 5px;
+        }
+
+        /* Spark Effect */
+        .spark {
+            position: absolute; background: white; width: 2px; height: 20px;
+            box-shadow: 0 0 10px var(--gold); pointer-events: none;
+            animation: spark-fade 0.4s ease-out forwards;
+        }
+        @keyframes spark-fade { 0% { opacity: 1; transform: scaleY(1); } 100% { opacity: 0; transform: scaleY(0); } }
+
+        /* Holoframe */
+        #holo-portal {
+            position: fixed; inset: 15px; z-index: 1000; background: rgba(8,8,25,0.95);
+            backdrop-filter: blur(40px); border: 2px solid var(--cyan); border-radius: 20px;
+            display: flex; flex-direction: column; clip-path: circle(0% at 50% 50%);
+            transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1); visibility: hidden;
+        }
+        #holo-portal.active { visibility: visible; clip-path: circle(150% at 50% 50%); }
+        iframe { flex: 1; border: none; border-radius: 0 0 18px 18px; background: #000; }
+        .holo-header { padding: 15px; display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--cyan); border-bottom: 1px solid rgba(0,242,255,0.2); }
+    </style>
+</head>
+<body>
+
+<video id="bg-video" autoplay loop muted playsinline src="https://files.catbox.moe/jhxjmx.mp4"></video>
+<div id="oracle-shield"></div>
+<div id="container"></div>
+
+<div id="holo-portal">
+    <div class="holo-header"><span id="realm-title">EDUCATION_SYNC</span><span onclick="closePortal()" style="cursor:pointer; color:var(--gold)">[ TERMINATE ]</span></div>
+    <iframe id="portal-frame"></iframe>
+</div>
+
+<script>
+    const eduRegistry = {
+        'IVY_LEAGUE': { color: '#710117', links: { 'HARVARD': 'https://harvard.edu', 'YALE': 'https://yale.edu', 'MIT': 'https://mit.edu' }},
+        'OPEN_CORE': { color: '#d4af37', links: { 'KHAN': 'https://khanacademy.org', 'WIKI': 'https://wikipedia.org', 'edX': 'https://edx.org' }}
+    };
+
+    const container = document.getElementById('container');
+    let gX = 0, gY = 0, bigOrbs = [];
+    const oracleRadius = 140;
+
+    // Handle Motion
+    window.addEventListener('devicemotion', (e) => {
+        gX = (e.accelerationIncludingGravity.x || 0) * 0.4;
+        gY = (e.accelerationIncludingGravity.y || 0) * -0.4;
+    });
+
+    function createSpark(x, y) {
+        for(let i=0; i<3; i++) {
+            const s = document.createElement('div');
+            s.className = 'spark';
+            s.style.left = x + 'px'; s.style.top = y + 'px';
+            s.style.transform = `rotate(${Math.random()*360}deg)`;
+            document.body.appendChild(s);
+            setTimeout(() => s.remove(), 400);
+        }
+    }
+
+    class SmallOrb {
+        constructor(name, url, parent, color) {
+            this.name = name; this.url = url; this.parent = parent; this.color = color;
+            this.radius = 35;
+            this.relX = (Math.random()-0.5) * 100;
+            this.relY = (Math.random()-0.5) * 100;
+            this.vx = (Math.random()-0.5) * 4;
+            this.vy = (Math.random()-0.5) * 4;
+
+            this.el = document.createElement('div');
+            this.el.className = 'small-orb';
+            this.el.style.setProperty('--m-color', color);
+            this.el.innerHTML = name;
+            this.el.onclick = () => openPortal(url, name);
+            container.appendChild(this.el);
+        }
+
+        update(px, py, pr) {
+            this.relX += this.vx; this.relY += this.vy;
+            const dist = Math.sqrt(this.relX**2 + this.relY**2);
+            
+            // Wall Collision
+            if (dist > pr - this.radius) {
+                const angle = Math.atan2(this.relY, this.relX);
+                this.relX = Math.cos(angle) * (pr - this.radius);
+                this.relY = Math.sin(angle) * (pr - this.radius);
+                this.vx *= -0.8; this.vy *= -0.8;
+                createSpark(px + this.relX, py + this.relY);
+            }
+
+            this.el.style.transform = `translate(${px + this.relX - this.radius}px, ${py + this.relY - this.radius}px)`;
+        }
+    }
+
+    class BigOrb {
+        constructor(cat, data) {
+            this.radius = 120;
+            this.x = Math.random() * window.innerWidth;
+            this.y = Math.random() * window.innerHeight;
+            this.vx = (Math.random()-0.5)*5; this.vy = (Math.random()-0.5)*5;
+            
+            this.el = document.createElement('div');
+            this.el.className = 'big-orb';
+            this.el.style.width = this.radius*2 + 'px';
+            this.el.style.height = this.radius*2 + 'px';
+            this.el.style.setProperty('--m-color', data.color);
+            container.appendChild(this.el);
+
+            this.children = Object.entries(data.links).map(([n, u]) => new SmallOrb(n, u, this, data.color));
+        }
+
+        update() {
+            this.vx += gX; this.vy += gY;
+            this.x += this.vx; this.y += this.vy;
+            this.vx *= 0.96; this.vy *= 0.96;
+
+            // Screen & Oracle Collision
+            if(this.x < this.radius || this.x > window.innerWidth - this.radius) this.vx *= -0.7;
+            if(this.y < this.radius || this.y > window.innerHeight - this.radius) this.vy *= -0.7;
+            
+            const dx = this.x - window.innerWidth/2, dy = this.y - window.innerHeight/2;
+            if(Math.sqrt(dx*dx + dy*dy) < this.radius + oracleRadius) {
+                const angle = Math.atan2(dy, dx);
+                this.vx += Math.cos(angle)*2; this.vy += Math.sin(angle)*2;
+            }
+
+            this.el.style.transform = `translate(${this.x - this.radius}px, ${this.y - this.radius}px)`;
+            this.children.forEach(c => c.update(this.x, this.y, this.radius));
+        }
+    }
+
+    Object.entries(eduRegistry).forEach(([k, d]) => bigOrbs.push(new BigOrb(k, d)));
+
+    function openPortal(url, name) {
+        document.getElementById('portal-frame').src = url;
+        document.getElementById('realm-title').textContent = "ACADEMIC_SYNC // " + name;
+        document.getElementById('holo-portal').classList.add('active');
+    }
+
+    function closePortal() {
+        document.getElementById('holo-portal').classList.remove('active');
+        setTimeout(() => { document.getElementById('portal-frame').src = ""; }, 800);
+    }
+
+    function loop() { bigOrbs.forEach(b => b.update()); requestAnimationFrame(loop); }
+    loop();
+</script>
+</body>
+</html>
