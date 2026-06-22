@@ -5,9 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Olympian Education • Nexus</title>
     <style>
-        :root { --gold: #d4af37; --cyan: #00f2ff; --bg: #00050a; }
+        :root { 
+            --gold: #d4af37; 
+            --cyan: #00f2ff; 
+            --bg: #00050a; 
+            --panel-bg: rgba(8,8,25,0.95);
+        }
+        
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { background: var(--bg); overflow: hidden; font-family: 'Courier New', monospace; }
+        body { background: var(--bg); overflow: hidden; font-family: 'Courier New', monospace; color: white; touch-action: none; }
+
+        /* Initialization Overlay for iOS DeviceMotion */
+        #init-overlay {
+            position: fixed; inset: 0; z-index: 9999; background: var(--bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        .sync-btn {
+            padding: 15px 30px; background: transparent; border: 2px solid var(--gold);
+            color: var(--gold); font-family: inherit; font-size: 1.2rem;
+            cursor: pointer; text-transform: uppercase; letter-spacing: 2px;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3); transition: all 0.3s;
+        }
+        .sync-btn:hover { background: var(--gold); color: #000; }
 
         /* Background grid tunnel */
         #bg-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.2); z-index: -1; }
@@ -23,86 +43,152 @@
 
         /* Big Orb Container */
         .big-orb {
-            position: absolute; border: 2px dashed rgba(212, 175, 55, 0.4);
+            position: absolute; top: 0; left: 0;
+            border: 2px dashed rgba(212, 175, 55, 0.4);
             border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 80%);
-            transition: border-color 0.3s;
+            will-change: transform;
         }
 
         /* Small Site Orbs */
         .small-orb {
-            position: absolute; width: 70px; height: 70px;
+            position: absolute; top: 0; left: 0; width: 70px; height: 70px;
             background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), rgba(0,0,0,0.95));
             border: 1px solid var(--m-color); border-radius: 50%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             color: #fff; font-size: 0.45rem; font-weight: bold; cursor: pointer;
             pointer-events: auto; box-shadow: 0 0 15px var(--m-color);
-            text-align: center; padding: 5px;
+            text-align: center; padding: 5px; will-change: transform;
+            transition: box-shadow 0.2s, transform 0.1s;
         }
+        .small-orb:active { transform: scale(0.9) !important; }
 
         /* Spark Effect */
         .spark {
-            position: absolute; background: white; width: 2px; height: 20px;
+            position: absolute; top: 0; left: 0; background: white; width: 2px; height: 20px;
             box-shadow: 0 0 10px var(--gold); pointer-events: none;
-            animation: spark-fade 0.4s ease-out forwards;
+            animation: spark-fade 0.4s ease-out forwards; will-change: transform, opacity;
         }
         @keyframes spark-fade { 0% { opacity: 1; transform: scaleY(1); } 100% { opacity: 0; transform: scaleY(0); } }
 
         /* Holoframe */
         #holo-portal {
-            position: fixed; inset: 15px; z-index: 1000; background: rgba(8,8,25,0.95);
-            backdrop-filter: blur(40px); border: 2px solid var(--cyan); border-radius: 20px;
-            display: flex; flex-direction: column; clip-path: circle(0% at 50% 50%);
-            transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1); visibility: hidden;
+            position: fixed; inset: 15px; z-index: 1000; background: var(--panel-bg);
+            backdrop-filter: blur(20px); border: 2px solid var(--cyan); border-radius: 20px;
+            display: flex; flex-direction: column; opacity: 0; pointer-events: none;
+            transform: scale(0.9); transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
         }
-        #holo-portal.active { visibility: visible; clip-path: circle(150% at 50% 50%); }
-        iframe { flex: 1; border: none; border-radius: 0 0 18px 18px; background: #000; }
-        .holo-header { padding: 15px; display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--cyan); border-bottom: 1px solid rgba(0,242,255,0.2); }
+        #holo-portal.active { opacity: 1; pointer-events: auto; transform: scale(1); }
+        
+        .holo-header { 
+            padding: 15px; display: flex; justify-content: space-between; 
+            font-size: 0.8rem; color: var(--cyan); border-bottom: 1px solid rgba(0,242,255,0.2); 
+            background: rgba(0,0,0,0.5); border-radius: 18px 18px 0 0;
+        }
+        .action-btn { cursor: pointer; color: var(--gold); transition: color 0.2s; }
+        .action-btn:hover { color: #fff; }
+        
+        iframe { flex: 1; border: none; border-radius: 0 0 18px 18px; background: #fff; }
+        
+        .iframe-warning {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; color: rgba(255,255,255,0.6); z-index: -1; font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
+
+<div id="init-overlay">
+    <button class="sync-btn" onclick="initializeNexus()">Establish Uplink</button>
+</div>
 
 <video id="bg-video" autoplay loop muted playsinline src="https://files.catbox.moe/jhxjmx.mp4"></video>
 <div id="oracle-shield"></div>
 <div id="container"></div>
 
 <div id="holo-portal">
-    <div class="holo-header"><span id="realm-title">EDUCATION_SYNC</span><span onclick="closePortal()" style="cursor:pointer; color:var(--gold)">[ TERMINATE ]</span></div>
-    <iframe id="portal-frame"></iframe>
+    <div class="holo-header">
+        <span id="realm-title">EDUCATION_SYNC</span>
+        <div>
+            <span class="action-btn" id="external-link" style="margin-right: 15px;">[ OPEN IN TAB ]</span>
+            <span class="action-btn" onclick="closePortal()">[ TERMINATE ]</span>
+        </div>
+    </div>
+    <div class="iframe-warning">If the portal remains blank, the target network rejects embedded connections.<br>Use [ OPEN IN TAB ] above.</div>
+    <iframe id="portal-frame" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
 </div>
 
 <script>
+    // Configuration
     const eduRegistry = {
-        'IVY_LEAGUE': { color: '#710117', links: { 'HARVARD': 'https://harvard.edu', 'YALE': 'https://yale.edu', 'MIT': 'https://mit.edu' }},
-        'OPEN_CORE': { color: '#d4af37', links: { 'KHAN': 'https://khanacademy.org', 'WIKI': 'https://wikipedia.org', 'edX': 'https://edx.org' }}
+        'IVY_LEAGUE': { color: '#710117', links: { 'HARVARD': 'https://www.harvard.edu', 'YALE': 'https://www.yale.edu', 'MIT': 'https://www.mit.edu' }},
+        'OPEN_CORE': { color: '#d4af37', links: { 'KHAN': 'https://www.khanacademy.org', 'WIKI': 'https://www.wikipedia.org', 'edX': 'https://www.edx.org' }}
     };
 
     const container = document.getElementById('container');
     let gX = 0, gY = 0, bigOrbs = [];
     const oracleRadius = 140;
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let animationId;
 
-    // Handle Motion
-    window.addEventListener('devicemotion', (e) => {
-        gX = (e.accelerationIncludingGravity.x || 0) * 0.4;
-        gY = (e.accelerationIncludingGravity.y || 0) * -0.4;
+    // Handle Window Resize
+    window.addEventListener('resize', () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
     });
 
+    // Device Motion Initialization (Required for iOS 13+)
+    async function initializeNexus() {
+        const overlay = document.getElementById('init-overlay');
+        
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            try {
+                const permission = await DeviceMotionEvent.requestPermission();
+                if (permission === 'granted') {
+                    startSensors();
+                } else {
+                    alert("Motion sensors denied. Proceeding with zero-gravity mode.");
+                }
+            } catch (error) {
+                console.error("Permission error:", error);
+            }
+        } else {
+            startSensors();
+        }
+
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 500);
+        if (bigOrbs.length === 0) bootSystem();
+    }
+
+    function startSensors() {
+        window.addEventListener('devicemotion', (e) => {
+            // Clamp values to prevent extreme physics explosions on violent shaking
+            const accX = e.accelerationIncludingGravity?.x || 0;
+            const accY = e.accelerationIncludingGravity?.y || 0;
+            gX = Math.max(-2, Math.min(2, accX * 0.4));
+            gY = Math.max(-2, Math.min(2, accY * -0.4));
+        });
+    }
+
+    // Hardware-accelerated sparks
     function createSpark(x, y) {
         for(let i=0; i<3; i++) {
             const s = document.createElement('div');
             s.className = 'spark';
-            s.style.left = x + 'px'; s.style.top = y + 'px';
-            s.style.transform = `rotate(${Math.random()*360}deg)`;
-            document.body.appendChild(s);
+            // Use transform for positioning to prevent layout thrashing
+            s.style.transform = `translate(${x}px, ${y}px) rotate(${Math.random()*360}deg)`;
+            container.appendChild(s);
             setTimeout(() => s.remove(), 400);
         }
     }
 
     class SmallOrb {
         constructor(name, url, parent, color) {
-            this.name = name; this.url = url; this.parent = parent; this.color = color;
+            this.name = name; this.url = url; this.parent = parent;
             this.radius = 35;
-            this.relX = (Math.random()-0.5) * 100;
-            this.relY = (Math.random()-0.5) * 100;
+            this.relX = (Math.random()-0.5) * 80; // Start closer to center
+            this.relY = (Math.random()-0.5) * 80;
             this.vx = (Math.random()-0.5) * 4;
             this.vy = (Math.random()-0.5) * 4;
 
@@ -110,33 +196,51 @@
             this.el.className = 'small-orb';
             this.el.style.setProperty('--m-color', color);
             this.el.innerHTML = name;
-            this.el.onclick = () => openPortal(url, name);
+            
+            // Touch/Click handling
+            this.el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openPortal(this.url, this.name);
+            });
+            
             container.appendChild(this.el);
         }
 
         update(px, py, pr) {
-            this.relX += this.vx; this.relY += this.vy;
+            this.relX += this.vx; 
+            this.relY += this.vy;
+            
             const dist = Math.sqrt(this.relX**2 + this.relY**2);
             
-            // Wall Collision
+            // Stabilized inner collision
             if (dist > pr - this.radius) {
                 const angle = Math.atan2(this.relY, this.relX);
+                // Push back exactly to the boundary
                 this.relX = Math.cos(angle) * (pr - this.radius);
                 this.relY = Math.sin(angle) * (pr - this.radius);
-                this.vx *= -0.8; this.vy *= -0.8;
-                createSpark(px + this.relX, py + this.relY);
+                // Dampen velocity to prevent infinite jittering
+                this.vx *= -0.8; 
+                this.vy *= -0.8;
+                
+                // Throttle sparks slightly based on velocity
+                if (Math.abs(this.vx) > 1 || Math.abs(this.vy) > 1) {
+                    createSpark(px + this.relX, py + this.relY);
+                }
             }
 
-            this.el.style.transform = `translate(${px + this.relX - this.radius}px, ${py + this.relY - this.radius}px)`;
+            // Apply translation via 3D transform for GPU acceleration
+            this.el.style.transform = `translate3d(${px + this.relX - this.radius}px, ${py + this.relY - this.radius}px, 0)`;
         }
     }
 
     class BigOrb {
         constructor(cat, data) {
             this.radius = 120;
-            this.x = Math.random() * window.innerWidth;
-            this.y = Math.random() * window.innerHeight;
-            this.vx = (Math.random()-0.5)*5; this.vy = (Math.random()-0.5)*5;
+            // Spawn safely within screen bounds
+            this.x = Math.max(this.radius, Math.random() * (width - this.radius*2));
+            this.y = Math.max(this.radius, Math.random() * (height - this.radius*2));
+            this.vx = (Math.random()-0.5)*4; 
+            this.vy = (Math.random()-0.5)*4;
             
             this.el = document.createElement('div');
             this.el.className = 'big-orb';
@@ -149,40 +253,67 @@
         }
 
         update() {
-            this.vx += gX; this.vy += gY;
-            this.x += this.vx; this.y += this.vy;
-            this.vx *= 0.96; this.vy *= 0.96;
-
-            // Screen & Oracle Collision
-            if(this.x < this.radius || this.x > window.innerWidth - this.radius) this.vx *= -0.7;
-            if(this.y < this.radius || this.y > window.innerHeight - this.radius) this.vy *= -0.7;
+            this.vx += gX; 
+            this.vy += gY;
             
-            const dx = this.x - window.innerWidth/2, dy = this.y - window.innerHeight/2;
-            if(Math.sqrt(dx*dx + dy*dy) < this.radius + oracleRadius) {
+            // Friction limit to prevent terminal velocity bugs
+            this.vx = Math.max(-15, Math.min(15, this.vx * 0.98)); 
+            this.vy = Math.max(-15, Math.min(15, this.vy * 0.98));
+
+            this.x += this.vx; 
+            this.y += this.vy;
+
+            // Stabilized Screen Collision
+            if(this.x < this.radius) { this.x = this.radius; this.vx *= -0.8; }
+            if(this.x > width - this.radius) { this.x = width - this.radius; this.vx *= -0.8; }
+            if(this.y < this.radius) { this.y = this.radius; this.vy *= -0.8; }
+            if(this.y > height - this.radius) { this.y = height - this.radius; this.vy *= -0.8; }
+            
+            // Oracle Collision
+            const dx = this.x - width/2, dy = this.y - height/2;
+            const distToOracle = Math.sqrt(dx*dx + dy*dy);
+            
+            if(distToOracle < this.radius + oracleRadius) {
                 const angle = Math.atan2(dy, dx);
-                this.vx += Math.cos(angle)*2; this.vy += Math.sin(angle)*2;
+                // Force orb out of the oracle shield
+                this.x = width/2 + Math.cos(angle) * (this.radius + oracleRadius);
+                this.y = height/2 + Math.sin(angle) * (this.radius + oracleRadius);
+                this.vx += Math.cos(angle)*3; 
+                this.vy += Math.sin(angle)*3;
             }
 
-            this.el.style.transform = `translate(${this.x - this.radius}px, ${this.y - this.radius}px)`;
+            this.el.style.transform = `translate3d(${this.x - this.radius}px, ${this.y - this.radius}px, 0)`;
             this.children.forEach(c => c.update(this.x, this.y, this.radius));
         }
     }
 
-    Object.entries(eduRegistry).forEach(([k, d]) => bigOrbs.push(new BigOrb(k, d)));
-
+    // Portal Logic
     function openPortal(url, name) {
-        document.getElementById('portal-frame').src = url;
+        const portal = document.getElementById('holo-portal');
+        const frame = document.getElementById('portal-frame');
+        const extLink = document.getElementById('external-link');
+        
         document.getElementById('realm-title').textContent = "ACADEMIC_SYNC // " + name;
-        document.getElementById('holo-portal').classList.add('active');
+        extLink.onclick = () => window.open(url, '_blank');
+        
+        frame.src = url;
+        portal.classList.add('active');
     }
 
     function closePortal() {
         document.getElementById('holo-portal').classList.remove('active');
-        setTimeout(() => { document.getElementById('portal-frame').src = ""; }, 800);
+        setTimeout(() => { document.getElementById('portal-frame').src = ""; }, 500);
     }
 
-    function loop() { bigOrbs.forEach(b => b.update()); requestAnimationFrame(loop); }
-    loop();
+    function bootSystem() {
+        Object.entries(eduRegistry).forEach(([k, d]) => bigOrbs.push(new BigOrb(k, d)));
+        loop();
+    }
+
+    function loop() { 
+        bigOrbs.forEach(b => b.update()); 
+        animationId = requestAnimationFrame(loop); 
+    }
 </script>
 </body>
 </html>
